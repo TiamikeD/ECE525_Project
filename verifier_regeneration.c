@@ -84,7 +84,8 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 // ****************************
 // ADD CODE
 // ****************************
-
+   SockGetB((unsigned char *)Alice_request_str, max_string_len, TTP_socket_desc);
+   printf(Alice_request_str);
 
 // Sanity check
 //   if ( Alice_anon_chip_num < 0 || Alice_anon_chip_num >  SAP_ptr->num_chips )

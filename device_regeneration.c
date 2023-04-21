@@ -91,11 +91,17 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // ****************************
 // ADD CODE 
 // ****************************
-   if ( SockSendB((unsigned char *)SHP_ptr->anon_chip_num, strlen(SHP_ptr->anon_chip_num)+1, TTP_socket_desc) < 0 ) 
-      { printf("ERROR: AliceWithdrawal(): Failed to send 'anon_chip_num' to TTP!\n"); exit(EXIT_FAILURE); }
+   //sprintf(
+   printf("\nNow executing Project part 1: \n");
+   char anon_request_str[max_string_len];
+   sprintf(anon_request_str, "%d %d", SHP_ptr->anon_chip_num, num_eCt); 
+   printf("\nAlice Chip Num and num_eCt: %s : \n", anon_request_str);
+   
+   if ( SockSendB((unsigned char *)anon_request_str, max_string_len, TTP_socket_desc) < 0 ) 
+      { printf("ERROR: AliceWithdrawal(): Failed to send 'Alice_request_str' to TTP!\n"); exit(EXIT_FAILURE); }
 
-   if ( SockSendB((unsigned char *)num_eCt, strlen(num_eCt)+1, TTP_socket_desc) < 0 ) 
-      { printf("ERROR: AliceWithdrawal(): Failed to send withdrawal amount to TTP!\n"); exit(EXIT_FAILURE); }
+//   if ( SockSendB((unsigned char *)num_eCt, strlen(num_eCt)+1, TTP_socket_desc) < 0 ) 
+//      { printf("ERROR: AliceWithdrawal(): Failed to send withdrawal amount to TTP!\n"); exit(EXIT_FAILURE); }
 
 // 2) Get response from TTP on whether Alice has enough funds. If insufficient funds ("ISF"), return 0, else continue.
 // ****************************
