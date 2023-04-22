@@ -422,16 +422,19 @@ void AliceWithdrawal(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int A
       { printf("ERROR: AliceWithdrawal(): SK_FA from ZeroTrust authen/key gen is NULL!\n"); exit(EXIT_FAILURE); }
 
 // 1) Get Alice's chip_num and her encrypted withdrawal amount. 
-   char *Alice_request_str[max_string_len]; //WAS CHAR* BEFORE I MADE CHANGES. TRY TO PUT IT BACK IF IT BREAKS
+   unsigned char *Alice_request_str[16]; 
+   unsigned char *eAlice_request_str[16]; 
    int Alice_anon_chip_num, num_eCt;
    unsigned char *eID_amt = Allocate1DUnsignedChar(AES_INPUT_NUM_BYTES);
 // ****************************
 // ADD CODE 
 // ****************************
+
    printf("SockGetB: get Alice's request string\n");
-   SockGetB((unsigned char *)Alice_request_str, max_string_len, Alice_socket_desc);
+   SockGetB((unsigned char *)eAlice_request_str, 16, Alice_socket_desc);
+   decrypt_256(SK_FA, SHP_ptr->AES_IV, eAlice_request_str, 16, Alice_request_str);
    printf("SockGetB: sscanf the request string into the separate variables\n");
-   printf("\nAlice request_str: %s : \n", Alice_request_str);
+   printf("\nAlice request_str: %s \n", Alice_request_str);
    sscanf(Alice_request_str,"%d %d", &Alice_anon_chip_num, &num_eCt);
 
    printf("Alice's chip num: %d Alice's num_eCt request: %d\n\n",Alice_anon_chip_num, num_eCt);

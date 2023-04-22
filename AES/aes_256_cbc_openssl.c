@@ -16,7 +16,7 @@ int encrypt_256(unsigned char *key,
             unsigned char *ciphertext)
 {
     EVP_CIPHER_CTX *ctx;
-
+    printf("\nMade it into encrypt_256!\n");
     int len, ciphertext_len;
 
     /* Create and initialise the context */

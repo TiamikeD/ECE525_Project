@@ -91,17 +91,29 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // ****************************
 // ADD CODE 
 // ****************************
-   //sprintf(
-   printf("\nNow executing Project part 1: \n");
-   char anon_request_str[max_string_len];
-   sprintf(anon_request_str, "%d %d", SHP_ptr->anon_chip_num, num_eCt); 
-   printf("\nAlice Chip Num and num_eCt: %s : \n", anon_request_str);
    
-   if ( SockSendB((unsigned char *)anon_request_str, max_string_len, TTP_socket_desc) < 0 ) 
-      { printf("ERROR: AliceWithdrawal(): Failed to send 'Alice_request_str' to TTP!\n"); exit(EXIT_FAILURE); }
+   printf("\nNow executing Project part 1: \n");
+   char anon_request_str[16];
+   sprintf(anon_request_str, "%d %d", SHP_ptr->anon_chip_num, num_eCt); //Unencrypted request string has been made 
+   printf("\nAlice Chip Num and num_eCt: %s : \n", anon_request_str);
 
-//   if ( SockSendB((unsigned char *)num_eCt, strlen(num_eCt)+1, TTP_socket_desc) < 0 ) 
-//      { printf("ERROR: AliceWithdrawal(): Failed to send withdrawal amount to TTP!\n"); exit(EXIT_FAILURE); }
+   
+   unsigned char *SK_FA = Client_CIArr[My_index].AliceBob_shared_key;
+   // null the client alice bob shared key here
+   Client_CIArr[My_index].AliceBob_shared_key = NULL;
+   
+   PrintHeaderAndHexVals("Session key: SK_FA: \n", SE_TARGET_NUM_KEY_BITS/8, SK_FA, 32);
+   if (SK_FA == NULL)
+      { printf("ERROR: AliceWithdrawal(): SK_FA is null."); exit(EXIT_FAILURE); }
+   
+   unsigned char *e_anon_request_str = NULL;
+   Allocate1DString((char **)(&e_anon_request_str), 16);
+   encrypt_256(SK_FA, SHP_ptr->AES_IV, (unsigned char *)anon_request_str, 16, e_anon_request_str);
+   printf("Encrption successful\n"); fflush(stdout);
+   
+   if ( SockSendB((unsigned char *)e_anon_request_str, 16, TTP_socket_desc) < 0 ) 
+      { printf("ERROR: AliceWithdrawal(): Failed to send 'Alice_request_str' to TTP!\n"); exit(EXIT_FAILURE); }
+   printf("Send successful\n"); fflush(stdout);
 
 // 2) Get response from TTP on whether Alice has enough funds. If insufficient funds ("ISF"), return 0, else continue.
 // ****************************
