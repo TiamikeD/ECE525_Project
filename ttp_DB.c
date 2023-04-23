@@ -447,6 +447,7 @@ void AliceWithdrawal(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int A
 // 3) TTP checks Alice's Bank account and confirms she is allowed to withdraw this amount. NOTE: Use Alice's chip_num
 // here (NOT her anonymous chip_num). The Bank gets the anonymous value if you decide to send it. Currently, only 
 // one TID allowed at this point.
+   printf("\n NOW BEGINNING TTP Pt. 3! \n"); fflush(stdout);
    int fail_or_pass; 
    int TID_DB, num_eCt_DB;
    int do_update = 0;
@@ -454,12 +455,28 @@ void AliceWithdrawal(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int A
 
    pthread_mutex_lock(PUFCash_Account_DB_mutex_ptr);
    PUFCashGetAcctRec(max_string_len, SHP_ptr->DB_PUFCash_V3, Alice_chip_num, &TID_DB, &num_eCt_DB, do_update, update_amt); 
+   printf("\n Alice_chip_num: %d \n", Alice_chip_num);
+   printf(" TID_DB: %d \n", TID_DB);
+   printf(" num_eCt_DB: %d \n", num_eCt_DB );
+   printf(" do_update: %d \n", do_update);
+   printf(" update_amt: %d \n", update_amt);
    pthread_mutex_unlock(PUFCash_Account_DB_mutex_ptr);
 
 // 4) Check request against balance, send ISF or HSF to Alice.
 // ****************************
 // ADD CODE 
 // ****************************
+   if ( num_eCt_DB >= num_eCt )
+      {
+      printf("\nAlice has sufficient funds for the withdrawal.\n");
+      SockSendB((unsigned char *)"HSF", 3, Alice_socket_desc);
+      }
+   else
+      {
+      printf("\nAlice has insufficient funds for the withdrawal.\n");
+      SockSendB((unsigned char *)"ISF", 3, Alice_socket_desc);
+      return 0;
+      }
 
 // 5) Start Bank transaction by sending Alice's request amount and chip_num (or anonomous chip_num).
    if ( SockSendB((unsigned char *)"WITHDRAW", strlen("WITHDRAW") + 1, Bank_socket_desc) < 0 )

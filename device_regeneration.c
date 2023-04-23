@@ -95,7 +95,7 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
    printf("\nNow executing Project part 1: \n");
    char anon_request_str[16];
    sprintf(anon_request_str, "%d %d", SHP_ptr->anon_chip_num, num_eCt); //Unencrypted request string has been made 
-   printf("\nAlice Chip Num and num_eCt: %s : \n", anon_request_str);
+   printf("\nAlice Chip Num and num_eCt: %s \n", anon_request_str);
 
    
    unsigned char *SK_FA = Client_CIArr[My_index].AliceBob_shared_key;
@@ -119,9 +119,14 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // ****************************
 // ADD CODE 
 // ****************************
-   char Alice_Funds_in_TTP[max_string_len];
-   if ( SockGetB((unsigned char *)Alice_Funds_in_TTP, max_string_len, TTP_socket_desc) == "ISF" )// What is the variable sent from TTP containing fund amt
-      { printf("ERROR: Alice has insufficient funds!\n"); exit(EXIT_FAILURE); }
+   unsigned char *Alice_Funds_in_TTP[3];
+   SockGetB((unsigned char *)Alice_Funds_in_TTP, 3, TTP_socket_desc);
+   printf("Alice_Funds_in_TTP: %s\n", Alice_Funds_in_TTP);
+   
+   if (memcmp(Alice_Funds_in_TTP, "ISF", 3) == 0)
+      { printf("ERROR: I (Alice) have insufficient funds!\n"); return 0; }
+   else
+      { printf("I (Alice) have sufficient funds for the withdrawal.\n"); }
 
 
 // 3) Generate a shared key between the Bank and Alice THROUGH the FI. The Bank can use timing data from the NAT (or AT if 
