@@ -99,6 +99,7 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 
    
    unsigned char *SK_FA = Client_CIArr[My_index].AliceBob_shared_key;
+   //printf("\n\n\n Session Key Length: %d \n\n\n", strlen(SK_FA));
    // null the client alice bob shared key here
    Client_CIArr[My_index].AliceBob_shared_key = NULL;
    
@@ -146,12 +147,20 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 
 // 4) Get the eeCt and eheCt
    int eCt_tot_bytes = num_eCt * HASH_IN_LEN_BYTES;
-   int eCt_tot_bytes_adj = eCt_tot_bytes + AES_INPUT_NUM_BYTES - (eCt_tot_bytes % AES_INPUT_NUM_BYTES);
+   int eCt_tot_bytes_adj = eCt_tot_bytes + AES_INPUT_NUM_BYTES - (eCt_tot_bytes % AES_INPUT_NUM_BYTES); // Gets sizing right for hashing and encryption function
    unsigned char *eeCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);
    unsigned char *eheCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);
 // ****************************
 // ADD CODE 
 // ****************************
+
+   for (int i = num_eCt; i > 0; i--) {
+      SockGetB((unsigned char *)eeCt_buffer, 256, TTP_socket_desc);
+      printf("eeCt received: %u\n", &eeCt_buffer);
+      SockGetB((unsigned char *)eheCt_buffer, 256, TTP_socket_desc);
+      printf("eheCt received: %u\n", eheCt_buffer);
+   }
+   
 
 // 5) Decrypt the eCt and heCt with SK_TA.
    unsigned char *eCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);

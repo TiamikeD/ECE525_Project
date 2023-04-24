@@ -481,7 +481,8 @@ void AliceWithdrawal(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int A
 // 5) Start Bank transaction by sending Alice's request amount and chip_num (or anonomous chip_num).
    if ( SockSendB((unsigned char *)"WITHDRAW", strlen("WITHDRAW") + 1, Bank_socket_desc) < 0 )
       { printf("ERROR: AliceWithdrawal(): Failed to send 'WITHDRAW' to Bank!\n"); exit(EXIT_FAILURE); }
-
+   if ( SockSendB((unsigned char *)Alice_request_str, strlen(Alice_request_str), Bank_socket_desc) < 0 )
+      { printf("ERROR: AliceWithdrawal(): Failed to send Alice's chip num and num_eCt to Bank!\n"); exit(EXIT_FAILURE); }
 // 6) Encrypt eID_amt with SK_TF
 // ****************************
 // ADD CODE 
@@ -506,6 +507,27 @@ void AliceWithdrawal(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int A
 // ****************************
 // ADD CODE 
 // ****************************
+   unsigned char *eeCt_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BYTES);
+   unsigned char *eheCt_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BYTES);
+   
+   for ( int i = num_eCt; i > 0; i--) {
+      if ( SockGetB((unsigned char *)eeCt_buffer, HASH_IN_LEN_BYTES, Bank_socket_desc) < 0){
+         printf("ERROR: AliceWithdrawal(): failed to receive eeCt");
+      }
+
+      if ( SockGetB((unsigned char *)eeCt_buffer, HASH_IN_LEN_BYTES, Bank_socket_desc) < 0){
+         printf("ERROR: AliceWithdrawal(): failed to receive eeCt");
+      }
+
+
+      if ( SockSendB((unsigned char *)eeCt_buffer, HASH_IN_LEN_BYTES, Alice_socket_desc) < 0){
+         printf("ERROR: AliceWithdrawal(): failed to send eeCt");
+      }
+
+      if ( SockSendB((unsigned char *)eeCt_buffer, HASH_IN_LEN_BYTES, Alice_socket_desc) < 0){
+         printf("ERROR: AliceWithdrawal(): failed to send eeCt");
+      }
+   }
 
 
    return;

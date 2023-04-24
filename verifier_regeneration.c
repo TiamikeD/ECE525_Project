@@ -78,14 +78,19 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 
 // ==============================
 // 1) Get encrypted Alice chip_num (or anon_chip_num) and Amt
-   char Alice_request_str[max_string_len];
+   printf("\nNow executing Project part 1: \n"); fflush(stdout);
+
+   char Alice_request_str[16];
    int Alice_anon_chip_num; 
    unsigned char *eID_amt = Allocate1DUnsignedChar(AES_INPUT_NUM_BYTES);
 // ****************************
 // ADD CODE
+   if(SockGetB((unsigned char *)Alice_request_str, 16, TTP_socket_desc) < 0)
+      {printf("ERROR: AliceWithdrawal: Failed to get Alice's encrypted chip_num and Amt\n"); exit(EXIT_FAILURE); }   //Matthew; getting the encrypted chip number and amount from the FI
+   if(sscanf(Alice_request_str, "%d %d", &Alice_anon_chip_num, &num_eCt) != 2) //CHANGED "%d %s" to "%d %ls" TO FIX A WARNING
+      {printf("ERROR: AliceWithdrawal(): Failed to extract Alice's anonymous chip number and Amt from '%s'!\n", Alice_request_str); exit(EXIT_FAILURE); }   //Matthew; extracting the chip num and amount from the holding variable and assigning it to proper variables
 // ****************************
-   SockGetB((unsigned char *)Alice_request_str, max_string_len, TTP_socket_desc);
-   printf(Alice_request_str);
+
 
 // Sanity check
 //   if ( Alice_anon_chip_num < 0 || Alice_anon_chip_num >  SAP_ptr->num_chips )
@@ -101,6 +106,8 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 
 // 2) Session Key with Alice THROUGH the TTP using the anonymous DB. 
 // First send control information that the verifier is using to the TTP.
+   printf("\nNow executing Project part 2: \n"); fflush(stdout);
+
    sprintf(request_str, "%d %d %d", SAP_ptr->use_database_chlngs, SAP_ptr->num_PIs, SAP_ptr->num_POs);
    if ( SockSendB((unsigned char *)request_str, strlen(request_str)+1, TTP_socket_desc) < 0 )
       { printf("ERROR: AliceWithdrawal(): Failed to send 'use_database_chlngs/num_PIs/num_POs' to TTP!\n"); exit(EXIT_FAILURE); }
@@ -134,10 +141,12 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 
    int SK_TA_num_bytes = SAP_ptr->SE_target_num_key_bits/8;
    unsigned char *SK_TA = NULL;
-   SK_TA = SAP_ptr->SE_final_key;
+   SK_TA = SAP_ptr->SE_final_key;   //Is SK_TA something we need communicated from Alice or is it passed by SAP_ptr?
    SAP_ptr->SE_final_key = NULL;
 
-// 3) Allocate space for the requested eCt. 
+// 3) Allocate space for the requested eCt.
+   printf("\nNow executing Project part 3: \n"); fflush(stdout);
+
    int eCt_tot_bytes = num_eCt * HASH_IN_LEN_BYTES;
 
    unsigned char *eCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes);
@@ -146,22 +155,55 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 // Generate requested number of eCt, encrypt them and send them to TTP. Currently each are 16 bytes.
    if ( read(RANDOM, eCt_buffer, eCt_tot_bytes) == -1 )
       { printf("ERROR: AliceWithdrawal(): Read /dev/urandom failed for eCt generation!\n"); exit(EXIT_FAILURE); }
-
 // 4) Get encrypted LLK with SK_TA key from Alice.
+   printf("\nNow executing Project part 4: \n"); fflush(stdout);
+
    unsigned char *eLLK = Allocate1DUnsignedChar(SAP_ptr->ZHK_A_num_bytes);
    unsigned char *LLK = Allocate1DUnsignedChar(SAP_ptr->ZHK_A_num_bytes);
 // ****************************
 // ADD CODE
+   unsigned char *eLLK_buffer = Allocate1DUnsignedChar(SAP_ptr->ZHK_A_num_bytes);
+   //if(SockGetB((unsigned char *)eLLK_buffer, SAP_ptr->ZHK_A_num_bytes, TTP_socket_desc) < 0)
+   //   {printf("ERROR: AliceWithdrawal(): Failed to get encrypted LLK from FI\n"); exit(EXIT_FAILURE); }   //Matthew; getting the encrypted LLK from the FI
 // ****************************
 
 // 5) Decrypt LLK
 // ****************************
 // ADD CODE
+   printf("\nNow executing Project part 5: \n"); fflush(stdout);
+   decrypt_256(SK_TA, SAP_ptr->AES_IV, eLLK, SAP_ptr->ZHK_A_num_bytes, LLK);   //Matthew, decrypting the encrypted LLK and storing it in LLK
 // ****************************
 
 // 6) Create heCt using Alice's LLK. XOR in Alice's LLK with the each eCt and hash each of them to create the heCt. 
 // ****************************
 // ADD CODE
+   printf("\nNow executing Project part 6: \n"); fflush(stdout);
+   
+   //unsigned char *temp_eCt = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);   //Matthew, temporary buffer to always hold the first 256 characters of the whole blob of eCt
+   unsigned char *out_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);  //Matthew, stores the batch of eCt that we are sending out
+   unsigned char *hash_out_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);
+   unsigned char *eCt_blob = Allocate1DUnsignedChar(eCt_tot_bytes);   //Matthew, a copy of the entire eCt string
+   eCt_blob = eCt_buffer;   //Matthew, copied
+   for(int i = num_eCt; i > 0; i--) {   //Matthew, a loop for each eCt
+      unsigned char *temp_eCt = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);   //Matthew, temporary buffer to always hold the first 256 characters of the whole blob of eCt
+      for (int j = 0; j < HASH_IN_LEN_BYTES; j++) {   //Matthew, a loop to copy each character of eCt
+         temp_eCt[j] = eCt_blob[j];
+      }
+      
+      out_buffer = temp_eCt; //&LLK ^ &temp_eCt;   //Matthew, XOR eCt and LLK
+      hash_256(HASH_IN_LEN_BITS, HASH_IN_LEN_BYTES, temp_eCt, HASH_OUT_LEN_BYTES, hash_out_buffer);   //Matthew, hash the eCt
+      printf("eCt: %u\n", &out_buffer);
+      if (SockSendB(out_buffer, HASH_IN_LEN_BYTES, TTP_socket_desc) < 0) {   //Matthew, send the eCt
+         printf("ERROR: AliceWithdrawal(): Failed to send eCt from TI to FI\n"); exit(EXIT_FAILURE);    //Matthew, error if an eCt doesn't send
+      }
+      
+      if(SockSendB(hash_out_buffer, HASH_IN_LEN_BYTES, TTP_socket_desc) < 0) {
+         printf("ERROR: AliceWithdrawal(): Failed to send heCt from TI to FI\n"); exit(EXIT_FAILURE);   // Matthew, error if heCt fails to send
+      }
+      
+      eCt_blob = eCt_blob + HASH_IN_LEN_BYTES;   //Matthew, delete the sent portion of eCt from the blob
+      temp_eCt = NULL;
+   }
 // ****************************
 
 // 7) Store the eCt in the PUFCash_WRec.db as one big blob. NOTE: Multiple outstanding withdrawals is NOT supported 
