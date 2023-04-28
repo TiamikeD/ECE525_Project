@@ -180,30 +180,27 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
    printf("\nNow executing Project part 6: \n"); fflush(stdout);
    
    //unsigned char *temp_eCt = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);   //Matthew, temporary buffer to always hold the first 256 characters of the whole blob of eCt
-   unsigned char *out_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);  //Matthew, stores the batch of eCt that we are sending out
-   unsigned char *hash_out_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);
-   unsigned char *eCt_blob = Allocate1DUnsignedChar(eCt_tot_bytes);   //Matthew, a copy of the entire eCt string
-   eCt_blob = eCt_buffer;   //Matthew, copied
-   for(int i = num_eCt; i > 0; i--) {   //Matthew, a loop for each eCt
-      unsigned char *temp_eCt = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);   //Matthew, temporary buffer to always hold the first 256 characters of the whole blob of eCt
-      for (int j = 0; j < HASH_IN_LEN_BYTES; j++) {   //Matthew, a loop to copy each character of eCt
-         temp_eCt[j] = eCt_blob[j];
-      }
+   //unsigned char *out_buffer = Allocate1DUnsignedChar(HASH_IN_LEN_BITS);  //Matthew, stores the batch of eCt that we are sending out
+   unsigned char *eheCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes);
+   unsigned char *eeCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes);   //Matthew, a copy of the entire eCt string
+
+   // Tiamike: XOR each eCt with the LLK
+   for ( int i = 0; i < num_eCt; i++) {
+      //printf("Original eCt: %d \t", eCt_buffer[i]);
       
-      out_buffer = temp_eCt; //&LLK ^ &temp_eCt;   //Matthew, XOR eCt and LLK
-      hash_256(HASH_IN_LEN_BITS, HASH_IN_LEN_BYTES, temp_eCt, HASH_OUT_LEN_BYTES, hash_out_buffer);   //Matthew, hash the eCt
-      printf("eCt: %u\n", &out_buffer);
-      if (SockSendB(out_buffer, HASH_IN_LEN_BYTES, TTP_socket_desc) < 0) {   //Matthew, send the eCt
-         printf("ERROR: AliceWithdrawal(): Failed to send eCt from TI to FI\n"); exit(EXIT_FAILURE);    //Matthew, error if an eCt doesn't send
-      }
+      eCt_buffer[i] = eCt_buffer[i] ^ LLK[i % HASH_IN_LEN_BYTES]; 
+      //printf("XOR'd eCt: %u \t",eCt_buffer[i]);
       
-      if(SockSendB(hash_out_buffer, HASH_IN_LEN_BYTES, TTP_socket_desc) < 0) {
-         printf("ERROR: AliceWithdrawal(): Failed to send heCt from TI to FI\n"); exit(EXIT_FAILURE);   // Matthew, error if heCt fails to send
-      }
-      
-      eCt_blob = eCt_blob + HASH_IN_LEN_BYTES;   //Matthew, delete the sent portion of eCt from the blob
-      temp_eCt = NULL;
+      //eCt_buffer[i] = eCt_buffer[i] ^ LLK[i % 32];
+      //printf("Restored eCt: %d \n", eCt_buffer[i]);
    }
+   // eCt_buffer now contains the xor'd eCts
+   
+
+   hash_256(max_string_len, eCt_tot_bytes, eCt_buffer, eCt_tot_bytes, heCt_buffer); //Tiamike - create heCt
+
+
+   
 // ****************************
 
 // 7) Store the eCt in the PUFCash_WRec.db as one big blob. NOTE: Multiple outstanding withdrawals is NOT supported 
@@ -222,12 +219,20 @@ void AliceWithdrawal(int max_string_len, SRFAlgoParamsStruct *SAP_ptr, int TTP_s
 // ****************************
 // ADD CODE
 // ****************************
-
+   encrypt_256(SK_TA, SAP_ptr->AES_IV, eCt_buffer, eCt_tot_bytes, eeCt_buffer);
+   encrypt_256(SK_TA, SAP_ptr->AES_IV, heCt_buffer, eCt_tot_bytes, eheCt_buffer);
 // 9) Transmit encrypted eeCt and eheCt to FI
 // ****************************
 // ADD CODE
 // ****************************
 
+   if ( SockSendB(eeCt_buffer, eCt_tot_bytes, TTP_socket_desc) < 0 ) { //Tiamike
+      printf("ERROR: AliceWithdrawal(): Failed to send XOR'd eeCts from TI to Fi\n"); exit(EXIT_FAILURE);
+   }
+   
+   if ( SockSendB(eheCt_buffer, eCt_tot_bytes, TTP_socket_desc) < 0 ) { //Tiamike
+      printf("ERROR: AliceWithdrawal(): Failed to send XOR'd eheCts from TI to Fi\n"); exit(EXIT_FAILURE);
+   }
 
    return;
    }

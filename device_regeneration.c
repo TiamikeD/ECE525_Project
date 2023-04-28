@@ -89,7 +89,7 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // 1) Send encrypted Alice chip_num (or anon_chip_num), e.g., SHP_ptr->anon_chip_num and amount of the withdrawal to the TTP. 
 // NOTE: Alice gets this anon_chip_num from the Bank (TI) at startup via an anonymous authentication operation. 
 // ****************************
-// ADD CODE 
+// TIAMIKE 
 // ****************************
    
    printf("\nNow executing Project part 1: \n");
@@ -118,7 +118,7 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 
 // 2) Get response from TTP on whether Alice has enough funds. If insufficient funds ("ISF"), return 0, else continue.
 // ****************************
-// ADD CODE 
+// TIAMIKE 
 // ****************************
    unsigned char *Alice_Funds_in_TTP[3];
    SockGetB((unsigned char *)Alice_Funds_in_TTP, 3, TTP_socket_desc);
@@ -148,19 +148,24 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // 4) Get the eeCt and eheCt
    int eCt_tot_bytes = num_eCt * HASH_IN_LEN_BYTES;
    int eCt_tot_bytes_adj = eCt_tot_bytes + AES_INPUT_NUM_BYTES - (eCt_tot_bytes % AES_INPUT_NUM_BYTES); // Gets sizing right for hashing and encryption function
-   unsigned char *eeCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);
+   unsigned char *eeCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes); //removed the _adj because it's not hashed so it doesnt need to worry about it.
+                                                                       // May beed to be put back when we hash locally to verify Alice's own eCts?
    unsigned char *eheCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);
 // ****************************
-// ADD CODE 
+// ADD CODE
 // ****************************
-
-   for (int i = num_eCt; i > 0; i--) {
-      SockGetB((unsigned char *)eeCt_buffer, 256, TTP_socket_desc);
-      printf("eeCt received: %u\n", &eeCt_buffer);
-      SockGetB((unsigned char *)eheCt_buffer, 256, TTP_socket_desc);
-      printf("eheCt received: %u\n", eheCt_buffer);
+   if ( SockGetB((unsigned char*)eeCt_buffer, eCt_tot_bytes, TTP_socket_desc) < 0) //Tiamike
+   {
+      printf("ERROR: AliceWithdrawal(): Failed to receive eeCts!"); exit(EXIT_FAILURE);
    }
-   
+   printf("Successfully got the eeCts from TI through TTP!\n"); fflush(stdout); //Tiamike
+
+  if ( SockGetB((unsigned char*)eheCt_buffer, eCt_tot_bytes, TTP_socket_desc) < 0)   //Matthew
+  {
+      printf("ERROR: AliceWithdrawal(): Failed to get recieve heCt from FI!"); exit(EXIT_FAILURE);
+  } 
+
+  printf("Successfully got the heCts from FI through TTP!\n"); fflush(stdout);   //Matthew
 
 // 5) Decrypt the eCt and heCt with SK_TA.
    unsigned char *eCt_buffer = Allocate1DUnsignedChar(eCt_tot_bytes_adj);
@@ -168,6 +173,9 @@ printf("\tAliceWithdrawal(): Alice sending TTP 'chip_num' so TTP can decide if i
 // ****************************
 // ADD CODE 
 // ****************************
+
+decrypt_256(SK_TA, SHP_ptr->AES_IV, eeCt_buffer, eCt_tot_bytes, eCt_buffer);   //Matthew, decrypting the eCt
+decrypt_256(SK_TA, SHP_ptr->AES_IV, eheCt_buffer, eCt_tot_bytes, heCt_buffer);   //Matthew, decrypting the heCt
 
 // ==============================
 // 6) Add Alice eCt and heCt blobs to DB, along with her LLK. NOTE: Multiple outstanding withdrawals is NOT supported 
@@ -457,7 +465,7 @@ printf("ProcessInComingRequest(): Found Alice's IP '%s' at index %d in Client_CI
 // (during withdrawals). Created this 'Driver' to modularize the removal of these elements.
 
 int AliceTransferDriver(int max_string_len, SRFHardwareParamsStruct *SHP_ptr, int My_index, int Bob_index, 
-   ClientInfoStruct *Client_CIArr, int port_number, int num_CIArr)
+   ClientInfoStruct *Client_CIArr, int port_number, int num_CIArr, int num_eCt)
 // int num_eCt_nonce_bytes, int num_eCt) 
    {
    int Bob_socket_desc = -1;
@@ -507,7 +515,14 @@ printf("AliceTransferDriver(): BEGIN!\n"); fflush(stdout);
       close(Bob_socket_desc);
       return 0;
       }
-
+   
+   int WRec_id = NULL;
+   unsigned char *eCt_buffer = Allocate1DUnsignedChar(num_eCt*HASH_IN_LEN_BYTES);
+   unsigned char *heCt_buffer = Allocate1DUnsignedChar(num_eCt*HASH_IN_LEN_BYTES);
+// the zero tells the func to get a list of IDs of Alice withdraws in the DB that are non zero 
+   printf("WRec_id from PUFCashGet_WRec_Data: %d \n",WRec_id); fflush(stdout);
+   PUFCashGet_WRec_Data(max_string_len, SHP_ptr->DB_PUFCash_V3, SHP_ptr->anon_chip_num, 0, &WRec_id, WRec_id, &eCt_buffer, &heCt_buffer, &num_eCt);
+   printf("WRec_id from PUFCashGet_WRec_Data: %d \n",WRec_id); fflush(stdout);
    close(Bob_socket_desc);
 
 
@@ -1298,12 +1313,12 @@ printf("\tWITHDRAWAL AMOUNT %d\n", num_eCt); fflush(stdout);
             if ( trn.amount == -1 )
                { continue; }
 
-            int Bob_index = trn.id_to;
-//            num_eCt = trn.amount;
+            int Bob_index = trn.id_to; // This could be the WRec_id
+            num_eCt = trn.amount;
 
 // Driver for AliceTransfer where we authenticate and then carry out the transfer to Bob. 
 //            if ( AliceTransferDriver(MAX_STRING_LEN, &SHP, My_index, RandomCustomer_index, Client_CIArr, port_number, num_CIArr) == 1 )
-            if ( AliceTransferDriver(MAX_STRING_LEN, &SHP, My_index, Bob_index, Client_CIArr, port_number, num_CIArr) == 1 )
+            if ( AliceTransferDriver(MAX_STRING_LEN, &SHP, My_index, Bob_index, Client_CIArr, port_number, num_CIArr, num_eCt) == 1 )
                transfer_success(trn);
             else
                transfer_fail();

@@ -976,6 +976,7 @@ void PrintHeaderAndHexVals(char *header_str, int num_bytes, unsigned char *vals,
    for ( i = 0; i < num_bytes; i++ )
       {
       printf("%02X ", vals[i]); 
+      fflush(stdout);
       if ( (i+1) % max_vals_per_row == 0 )
          printf("\n\t\t");
       }
