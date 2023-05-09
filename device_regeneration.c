@@ -1341,6 +1341,36 @@ printf("\tWITHDRAWAL AMOUNT %d\n", num_eCt); fflush(stdout);
             ZeroTrust_GetATs(MAX_STRING_LEN, &SHP, Bank_socket_desc, is_TTP, session_key, NULL, -1); 
             break;
 
+
+// ======================================
+// ====================================== Charles Implement
+// Deposit: Bob deposits the money into the FI 
+         case MENU_DEPOSIT:
+            num_eCt = get_deposit();
+
+#ifdef DEBUG
+printf("\tDEPOSIT AMOUNT %d\n", num_eCt); fflush(stdout); 
+#endif
+            
+            if(num_eCt == -1) { continue; }
+
+// Do NOT allow Bob to deposit in any increment other than this min amount, e.g., $5
+            if ( (num_eCt % MIN_WITHDRAW_INCREMENT) != 0 )
+               {
+               printf("ERROR: Requested deposit %d\tYou MUST deposit in increments of %d!\n", 
+                  num_eCt, MIN_WITHDRAW_INCREMENT); fflush(stdout); 
+               deposit_fail();
+               continue;
+               }
+
+// Bob authenticates with the TTP and then carries out the deposit process. 
+            if ( AliceWithdrawal(MAX_STRING_LEN, &SHP, TTP_index, My_index, Client_CIArr, port_number, num_CIArr, 
+               num_eCt_nonce_bytes, num_eCt) == 0 )
+               { printf("ERROR: Bob FAILED to deposit %d eCt\n", num_eCt); fflush(stdout); }
+            else
+               { printf("ERROR: Bob SUCCEEDED in depositing %d eCt\n", num_eCt); fflush(stdout); }
+            break;
+
 // ======================================
 // ======================================
 // NoOp: Used when main_menu() using poll (non-blocking) mode.
